@@ -22,7 +22,7 @@ p = 18 / 37
 
 
 def Q_next(V, gamma):
-    Q = np.zeros((101, 50))  # każdy maksymalnie będzie 50 stanów (dla x = 50)
+    Q = np.zeros((101, 50))  # każdy maksymalnie będzie 50 stanów (dla x = 50 najwiecej możliwych akcji do wykonania)
 
     for x in range(101):  # dla wszystkich stanów
         for a in range(50):  # dla wszystkich akcji

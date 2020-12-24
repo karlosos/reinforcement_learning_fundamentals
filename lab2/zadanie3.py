@@ -1,4 +1,3 @@
-
 """
 Gra w zapałki
 
@@ -92,15 +91,26 @@ def optymalna_strategia():
 
 
 if __name__ == "__main__":
+    import pandas as pd
+
+    # Porównanie wartości strategii
     print("V pi1")
     Q1 = wartosc_strategii(0)
     print(Q1[:, 0])
     print("V pi2")
     Q2 = wartosc_strategii(1)
-    print(Q1[:, 1])
+    print(Q2[:, 1])
     print("V pi3")
     Q3 = wartosc_strategii(2)
-    print(Q1[:, 2])
+    print(Q3[:, 2])
+
+    data = {"pi1": Q1[:, 0], "pi2": Q2[:, 1], "pi3": Q3[:, 2]}
+    df = pd.DataFrame.from_dict(data)
+    print(df.to_latex())
+
+
+    # Optymalna strategia 
     print("Q optymalnej strategi")
     Q = optymalna_strategia()
-    print(Q)
+    df = pd.DataFrame(Q)
+    print(df.to_latex())
