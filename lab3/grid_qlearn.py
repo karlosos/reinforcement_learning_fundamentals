@@ -1,104 +1,173 @@
+import random
 import numpy as np
 
-class Env:
+
+class Grid:
     def __init__(self):
         self.height = 10
         self.width = 10
-        self.posX = 0
-        self.posY = 0
-        self.endX = self.width-1
-        self.endY = self.height-1
         self.actions = [0, 1, 2, 3]
-        self.stateCount = self.height*self.width
-        self.actionCount = len(self.actions)
+        self.state_count = self.height * self.width
+        self.action_count = len(self.actions)
 
-    def reset(self):
-        # find starting point
-        self.posX = 0
-        self.posY = 0
-        self.done = False
-        return 0, 0, False
+        self.policy_print_characters = {0: "<", 1: ">", 2: "^", 3: "v"}
 
-    # take action
-    def step(self, action):
-        if action == 0: # left
-            self.posX = self.posX-1 if self.posX > 0 else self.posX
-        if action == 1: # right
-            self.posX = self.posX+1 if self.posX < self.width - 1 else self.posX
-        if action == 2: # up
-            self.posY = self.posY-1 if self.posY > 0 else self.posY
-        if action == 3: # down
-            self.posY = self.posY+1 if self.posY < self.height - 1 else self.posY
+        self.grid = np.zeros((self.height, self.width))
+        # end points
+        self.grid[0, 0] = 20
+        self.grid[0, -1] = 20
 
-        done = self.posX == self.endX and self.posY == self.endY
-        # mapping (x,y) position to number between 0 and 5x5-1=24
-        nextState = self.width * self.posY + self.posX
-        reward = 1 if done else 0
-        return nextState, reward, done
+        # obstacles
+        self.grid[3, 2] = -1
+        self.grid[3, 3] = -1
+        self.grid[3, 4] = -1
+        self.grid[3, 4] = -1
+        self.grid[3, 5] = -1
+        self.grid[3, 6] = -1
+        self.grid[3, 7] = -1
 
-    # return a random action
-    def randomAction(self):
-        return np.random.choice(self.actions)
+        self.grid[2, 5] = -1
+        self.grid[3, 5] = -1
+        self.grid[4, 5] = -1
+        self.grid[5, 5] = -1
+        self.grid[6, 5] = -1
+        self.grid[7, 5] = -1
 
-    # display environment
-    def render(self):
+    def random_position(self):
+        """Find random starting position"""
+        return (9, 9)
+        while True:
+            h = random.randrange(0, self.height)
+            w = random.randrange(0, self.width)
+            if self.grid[h, w] == 0:
+                return (h, w)
+
+    def is_terminal(self, state):
+        """Terminal states are those with reward greater than 0"""
+        if self.grid[state[0], state[1]] > 0:
+            return True
+        else:
+            return False
+
+    def to_string(self, state=None, policy=None):
+        res = "┌" + "─" * self.width + "┐" + "\n"
         for i in range(self.height):
+            res += "│"
             for j in range(self.width):
-                if self.posY == i and self.posX == j:
-                    print("O", end='')
-                elif self.endY == i and self.endX == j:
-                    print("T", end='')
+                if self.grid[i, j] == -1:
+                    res += "#"
+                elif self.grid[i, j] > 0:
+                    res += "X"
+                elif state is not None and state[0] == i and state[1] == j:
+                    res += "¤"
+                elif policy is not None:
+                    res += self.policy_print_characters[policy[i, j]]
+
                 else:
-                    print(".", end='')
-            print("")
+                    res += " "
+            res += "│"
+            res += "\n"
+        res += "└" + "─" * self.width + "┘"
+        return res
+
+    def __str__(self):
+        return self.to_string()
+
+    def available_actions(self, state):
+        actions = []
+        if self.is_terminal(state):
+            return actions
+
+        h, w = state
+        if h > 0:
+            if self.grid[h-1, w] >= 0:
+                actions.append(2)  # up
+        if w > 0:
+            if self.grid[h, w-1] >= 0:
+                actions.append(0)  # left
+        if h < self.height-1:
+            if self.grid[h+1, w] >= 0:
+                actions.append(3)  # down
+        if w < self.width-1:
+            if self.grid[h, w+1] >= 0:
+                actions.append(1)  # right
+
+        return actions
+
+
+    def take_action(self, state, action):
+        h, w = state
+        state_next = [h, w]
+
+        if action == 0:  # left
+            state_next[1] = w-1
+        if action == 1:  # right
+            state_next[1] = w+1
+        if action == 2:  # up
+            state_next[0] = h-1
+        if action == 3:  # down
+            state_next[0] = h+1
+
+        done = self.is_terminal(state_next) or self.available_actions(state_next) == []
+        reward = self.grid[state_next[0], state_next[1]]
+        return state_next, reward, done
+
+
 
 def main():
     import numpy as np
     import time
     import os
 
-    # create environment
-    env = Env()
+    env = Grid()
 
-    # QTable : contains the Q-Values for every (state,action) pair
-    qtable = np.random.rand(env.stateCount, env.actionCount).tolist()
+    qtable = np.random.rand(env.height, env.width, env.action_count)
 
-    # hyperparameters
-    epochs = 1000
-    gamma = 0.1
-    epsilon = 0.08
-    decay = 0.1
+    epochs = 2000
+    gamma = 0.6
+    epsilon = 0.1
 
-    # training loop
     for i in range(epochs):
-        state, reward, done = env.reset()
+        state = env.random_position()
+        reward = 0
+        done = False
         steps = 0
 
+
         while not done:
-            print("epoch #", i+1, "/", epochs)
+            h, w = state
 
             # count steps to finish game
             steps += 1
 
-            # act randomly sometimes to allow exploration
+            # exploration
             if np.random.uniform() < epsilon:
-                action = env.randomAction()
-            # if not select max action in Qtable (act greedy)
+                action = np.random.choice(env.available_actions(state))
+            # best action
             else:
-                action = qtable[state].index(max(qtable[state]))
+                action = qtable[h, w].argmax()
+                available_actions = env.available_actions(state)
+                if action not in available_actions:
+                    action = np.random.choice(env.available_actions(state))
+
 
             # take action
-            next_state, reward, done = env.step(action)
+            state_next, reward, done = env.take_action(state, action)
 
             # update qtable value with Bellman equation
-            qtable[state][action] = reward + gamma * max(qtable[next_state])
+            qtable[h, w, action] = reward + gamma * np.max(qtable[state_next])
 
             # update state
-            state = next_state
-        # The more we learn, the less we take random actions
-        epsilon -= decay*epsilon
+            state = state_next 
 
-        print("\nDone in", steps, "steps".format(steps))
+            # print(env.to_string(state=state))
+
+        print("Epoka: ", i + 1, "kroki:", steps)
+
+    print("Wyznaczona strategia")
+    policy = np.argmax(qtable, axis=2)
+    print(policy)
+    print(env.to_string(policy=policy))
 
 if __name__ == "__main__":
     main()
