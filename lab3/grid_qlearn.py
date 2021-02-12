@@ -14,28 +14,20 @@ class Grid:
 
         self.grid = np.zeros((self.height, self.width))
         # end points
-        self.grid[0, 0] = 20
-        self.grid[0, -1] = 20
+        self.grid[0, 0] = 10 
+        self.grid[-1, 0] = 50
 
         # obstacles
-        self.grid[3, 2] = -1
-        self.grid[3, 3] = -1
-        self.grid[3, 4] = -1
-        self.grid[3, 4] = -1
-        self.grid[3, 5] = -1
-        self.grid[3, 6] = -1
-        self.grid[3, 7] = -1
+        self.grid[3, 2:8] = -1
 
-        self.grid[2, 5] = -1
-        self.grid[3, 5] = -1
-        self.grid[4, 5] = -1
-        self.grid[5, 5] = -1
-        self.grid[6, 5] = -1
-        self.grid[7, 5] = -1
+        self.grid[2:8, 6] = -1
+        self.grid[2:8, 5] = -1
+        self.grid[2:8, 4] = -1
+        self.grid[2:8, 3] = -1
+
 
     def random_position(self):
         """Find random starting position"""
-        return (9, 9)
         while True:
             h = random.randrange(0, self.height)
             w = random.randrange(0, self.width)
@@ -121,11 +113,18 @@ def main():
 
     env = Grid()
 
+    # Initialize qtable
     qtable = np.random.rand(env.height, env.width, env.action_count)
+    for i in range(env.height):
+        for j in range(env.width):
+            for action in range(4):
+                # reset unabailable actions
+                if action not in env.available_actions((i, j)):
+                    qtable[i, j, action] = 0
 
-    epochs = 2000
-    gamma = 0.6
-    epsilon = 0.1
+    epochs = 5000
+    gamma = 0.9
+    epsilon = 0.2
 
     for i in range(epochs):
         state = env.random_position()
@@ -141,7 +140,7 @@ def main():
             steps += 1
 
             # exploration
-            if np.random.uniform() < epsilon:
+            if np.random.random() < epsilon:
                 action = np.random.choice(env.available_actions(state))
             # best action
             else:
@@ -158,11 +157,17 @@ def main():
             qtable[h, w, action] = reward + gamma * np.max(qtable[state_next])
 
             # update state
+            # print("Action", action)
+            # print("Step", steps)
             state = state_next 
 
-            # print(env.to_string(state=state))
+            #print(env.to_string(state=state))
 
         print("Epoka: ", i + 1, "kroki:", steps)
+        if i % 100 == 0:
+            print("Wyznaczona strategia")
+            policy = np.argmax(qtable, axis=2)
+            print(env.to_string(policy=policy))
 
     print("Wyznaczona strategia")
     policy = np.argmax(qtable, axis=2)
